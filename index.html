@@ -95,6 +95,8 @@
   .pr tbody tr.link { cursor: pointer; }
   .pr tbody tr.link:active { background: var(--btn-on); }
   .pr .short { display: none; }
+  .pr th.grp { text-align: center; border-bottom: 0; padding-bottom: 0; }
+  .pr td.rec { font-weight: 400; }
   .medals { width: 100%; max-width: 420px; margin: 0 auto; border-collapse: collapse; text-align: center; }
   .medals th { font-size: 14px; padding: 8px; }
   .medals td { background: var(--stripe); padding: 8px; font-size: 15px; color: #c2410c; }
@@ -142,6 +144,11 @@
     <table class="pr" id="prTable"></table>
     <div class="note">Tap an event to see its graphs.</div>
     <div class="section">
+      <h2>Records</h2>
+      <table class="pr records" id="recTable"></table>
+      <div class="note" id="recNote"></div>
+    </div>
+    <div class="section">
       <h2>Medal Collection</h2>
       <table class="medals" id="medals"></table>
     </div>
@@ -159,7 +166,7 @@
     <div id="chartNote"></div>
   </section>
 </main>
-<footer>V.2. Concept by dan-suri-weather, coded by Claude Code.</footer>
+<footer>V.3. Concept by dan-suri-weather, coded by Claude Code.</footer>
 
 <script src="vendor/chart.umd.js"></script>
 <script type="module">
@@ -251,7 +258,26 @@ function prRow(ev, link) {
 function renderPrs() {
   const evs = EVENTS.filter(e => data.prs[e.id] && data.prs[e.id].single).map(e => e.id);
   $('prTable').innerHTML = prHead() + '<tbody>' + evs.map(ev => prRow(ev, true)).join('') + '</tbody>';
+  renderRecords(evs);
   $('medals').innerHTML = medalsTable(data.medals || {});
+}
+// UK, European and world records for the same events as the PR table, single then average.
+function renderRecords(evs) {
+  const recs = data.records;
+  $('recTable').hidden = !recs;
+  $('recNote').textContent = recs ? '' : 'Tap Update data on the main menu to load the records.';
+  if (!recs) return;
+  const eur = '<span class="long">Europe</span><span class="short">Eur</span>';
+  const cell = (scope, ev, kind) => `<td class="time rec">${fmtResult(((recs[scope] || {})[ev] || {})[kind], ev, kind)}</td>`;
+  $('recTable').innerHTML = `<thead>
+      <tr><th class="grp"></th><th class="grp" colspan="3">Single</th><th class="grp" colspan="3">Average</th></tr>
+      <tr><th class="ev">Event</th><th>UK</th><th>${eur}</th><th>World</th><th>World</th><th>${eur}</th><th>UK</th></tr>
+    </thead><tbody>` +
+    evs.map(ev => `<tr class="link" data-ev="${ev}">
+      <td class="ev">${icon(ev)}<span class="long">${esc(byId[ev].full)}</span><span class="short">${esc(byId[ev].short)}</span></td>
+      ${cell('nr', ev, 'single')}${cell('cr', ev, 'single')}${cell('wr', ev, 'single')}
+      ${cell('wr', ev, 'average')}${cell('cr', ev, 'average')}${cell('nr', ev, 'average')}</tr>`).join('') +
+    '</tbody>';
 }
 function medalsTable(m) {
   return `<thead><tr><th>Gold</th><th>Silver</th><th>Bronze</th></tr></thead>
@@ -496,7 +522,8 @@ window.addEventListener('hashchange', route);
     const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     if (r.ok) {
       const copy = await r.json();
-      if (!data || (copy.fetchedAt > data.fetchedAt && !sameData(data, copy))) { adopt(copy); route(); }
+      const newer = data && copy.fetchedAt > data.fetchedAt && !sameData(data, copy);
+      if (!data || newer || (!data.records && copy.records)) { adopt(copy); route(); }
     }
   } catch (e) { if (!data) say('Could not load results. Connect to the internet and tap Update data.', true); }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});

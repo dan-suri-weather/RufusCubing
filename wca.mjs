@@ -13,8 +13,9 @@ async function getJson(url) {
 }
 
 export async function fetchWca() {
-  const [person, results, comps] = await Promise.all([
+  const [person, results, comps, allRecords] = await Promise.all([
     getJson(API), getJson(API + '/results'), getJson(API + '/competitions'),
+    getJson('https://www.worldcubeassociation.org/api/v0/records'),
   ]);
   const compMap = {};
   for (const c of comps) compMap[c.id] = [c.name, c.start_date];
@@ -27,6 +28,16 @@ export async function fetchWca() {
       if (p) prs[ev][kind] = { best: p.best, wr: p.world_rank, cr: p.continent_rank, nr: p.country_rank };
     }
   }
+
+  // World, continental (Europe) and national (UK) records, kept only for events Rufus has competed in.
+  const { continent_id: continent, id: country } = person.person.country;
+  const events = new Set(results.map(r => r.event_id));
+  const keep = recs => Object.fromEntries(Object.entries(recs || {}).filter(([ev]) => events.has(ev)));
+  const records = {
+    wr: keep(allRecords.world_records),
+    cr: keep((allRecords.continental_records || {})[continent]),
+    nr: keep((allRecords.national_records || {})[country]),
+  };
 
   // [competition, event, round type, place, best, average, attempts], oldest first.
   const rows = results.map(r => [r.competition_id, r.event_id, r.round_type_id, r.pos, r.best, r.average, r.attempts]);
@@ -41,6 +52,7 @@ export async function fetchWca() {
     competitionCount: person.competition_count,
     medals: person.medals,
     prs,
+    records,
     comps: compMap,
     results: rows,
   };
