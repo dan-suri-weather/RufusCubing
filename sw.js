@@ -1,6 +1,6 @@
 // Lets the app open with no internet connection. Network first, cached copy as fallback.
-const CACHE = 'rufuscubing-v1';
-const SHELL = ['./', 'index.html', 'wca.mjs', 'data.json', 'manifest.webmanifest', 'vendor/chart.umd.js',
+const CACHE = 'rufuscubing-v2';
+const SHELL = ['./', 'index.html', 'wca.mjs', 'data.json', 'uk.json','manifest.webmanifest', 'vendor/chart.umd.js',
   'icons/cubing-icons.css', 'icons/cubing-icons.woff2', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

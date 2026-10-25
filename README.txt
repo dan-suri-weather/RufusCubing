@@ -12,6 +12,8 @@ FILES
 index.html                          The whole app
 wca.mjs                             Fetches results from the WCA (used by the app and the daily job)
 data.json                           The app's copy of Rufus's results
+uk.mjs                              Collects winning and third-place final averages at UK competitions
+uk.json                             The app's copy of those (no competitor names are kept)
 sw.js, manifest.webmanifest,        Let it work offline and install to the Home Screen
 icon-180.png, icon-192.png,
 icon-512.png
@@ -52,6 +54,9 @@ USING IT
     Frequency  how many solves fall into each time band
   DNF and DNS leave a gap in the Solves and Average graphs and are left out of Frequency.
   Touch the graph to see the time, competition, round and date for a point.
+- Winning averages and Averages to podium show the winning (or third-place) average in the final at every
+  UK competition since Cheltenham Summer 2022, one dot per competition, with a dashed line for the average of
+  the last 20 competitions. Tap an event symbol at the top to switch event.
 - Fewest Moves graphs are in moves rather than seconds.
 - Update data fetches the latest results straight from the WCA.
   If that fails it uses data.json, which the GitHub Action refreshes every morning.

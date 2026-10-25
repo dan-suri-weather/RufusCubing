@@ -72,6 +72,7 @@
   }
   .menu button.prs:active { background: #2c4f7d; }
   .menu .trophy { font-size: 22px; }
+  .menu button.uk { justify-content: center; text-align: center; font-weight: 600; background: var(--btn-on); }
   .update { margin-top: 18px; text-align: center; }
   .update button {
     font-size: 15px; padding: 10px 16px; border-radius: 10px;
@@ -113,6 +114,20 @@
   .tabs button.on { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
   .chart-wrap { position: relative; height: min(62vh, 440px); min-height: 280px; }
   #chartNote { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+  /* ---- UK winning / podium averages page ---- */
+  .chips { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .chips button {
+    font-size: 22px; padding: 8px 0; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--btn); color: var(--ink);
+  }
+  .chips button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  #ukEvent { margin: 16px 0 2px; }
+  .sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 8px; }
+  .key { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .key span { display: inline-flex; align-items: center; gap: 6px; }
+  .key .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .key .dash { width: 18px; border-top: 2px dashed #ea580c; }
 
   @media (max-width: 600px) {
     .menu { grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -165,14 +180,23 @@
     <div class="chart-wrap"><canvas id="chart"></canvas></div>
     <div id="chartNote"></div>
   </section>
+
+  <section id="ukView" class="view" hidden>
+    <div class="chips" id="ukChips"></div>
+    <h2 id="ukEvent"></h2>
+    <div class="sub" id="ukSub"></div>
+    <div class="key"><span><i class="dot"></i>One UK competition</span><span><i class="dash"></i>Average of the last 20 competitions</span></div>
+    <div class="chart-wrap"><canvas id="ukChart"></canvas></div>
+    <div class="note" id="ukNote"></div>
+  </section>
 </main>
-<footer>V.4. Concept by dan-suri-weather, coded by Claude Code.</footer>
+<footer>V.5. Concept by dan-suri-weather, coded by Claude Code.</footer>
 
 <script src="vendor/chart.umd.js"></script>
 <script type="module">
 import { fetchWca, sameData } from './wca.mjs';
 
-const K_DATA = 'rc.data', K_GRAPH = 'rc.graph';
+const K_DATA = 'rc.data', K_GRAPH = 'rc.graph', K_UK = 'rc.uk';
 
 // In the order the WCA lists them. `short` is used where space is tight on a phone.
 const EVENTS = [
@@ -195,18 +219,35 @@ const byId = Object.fromEntries(EVENTS.map(e => [e.id, e]));
 const ROUND_NAMES = { 0: 'Qualification', h: 'Qualification', 1: 'First round', d: 'First round',
   2: 'Second round', e: 'Second round', 3: 'Semi Final', g: 'Semi Final', b: 'B Final', c: 'Final', f: 'Final' };
 
-let data = null, chart = null;
+// The two UK pages: winning average in the final, and the third-place average (the time needed for a medal).
+const UK_PAGES = {
+  'uk-win': { title: 'Winning averages', slot: 0, sub: 'Winning average in the final at UK competitions' },
+  'uk-podium': { title: 'Averages to podium', slot: 1, sub: 'Third-place average in the final at UK competitions' },
+};
+
+// uk: { updatedAt, comps: [[id, name, date, { event: [winning average, third-place average] }]] }, from uk.json.
+let data = null, uk = null, chart = null;
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const icon = id => `<span class="cubing-icon event-${id}"></span>`;
 
-function load() {
-  try { const v = localStorage.getItem(K_DATA); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+function load(key = K_DATA) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; }
 }
 function save() {
   try { localStorage.setItem(K_DATA, JSON.stringify(data)); }
   catch (e) { say('Could not save on this device: ' + e.message); }
+}
+// Fetches uk.json (refreshed daily by the GitHub Action) and keeps it if it's newer than this device's copy.
+async function refreshUk() {
+  const r = await fetch('uk.json?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error('UK results unavailable (' + r.status + ')');
+  const copy = await r.json();
+  if (uk && copy.updatedAt <= uk.updatedAt) return false;
+  uk = copy;
+  try { localStorage.setItem(K_UK, JSON.stringify(uk)); } catch (e) {}
+  return true;
 }
 let sayTimer;
 function say(t, keep) {
@@ -434,9 +475,63 @@ function renderEvent(ev) {
   drawChart(ev, kind);
 }
 
+// ---- UK winning / podium averages ----
+// One dot per UK competition whose final had that average, plus the average of the latest 20 competitions at each point.
+function drawUk(page, ev) {
+  if (chart) { chart.destroy(); chart = null; }
+  const { slot } = UK_PAGES[page];
+  for (const b of $('ukChips').children) b.classList.toggle('on', b.dataset.ev === ev);
+  $('ukEvent').innerHTML = icon(ev) + ' ' + esc(byId[ev].name);
+  $('ukSub').textContent = UK_PAGES[page].sub + (ev === '333fm' ? ' (moves)' : '');
+  if (!uk) { $('ukNote').textContent = 'Tap Update data on the main menu to load the UK results.'; return; }
+
+  const pts = [];
+  for (const [, name, date, finals] of uk.comps) {
+    const v = (finals[ev] || [])[slot];
+    if (v > 0) pts.push({ x: Date.parse(date), y: toValue(v, ev, 'average'), raw: v, name, date });
+  }
+  const trend = pts.map((p, i) => {
+    const last = pts.slice(Math.max(0, i - 19), i + 1);
+    return { x: p.x, y: last.reduce((s, q) => s + q.y, 0) / last.length };
+  });
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const grid = { color: '#e5e7eb' }, font = { size: 12 };
+  const DAY = 864e5;
+  chart = new Chart($('ukChart'), {
+    data: { datasets: [
+      { type: 'scatter', data: pts, backgroundColor: accent, pointRadius: 3, pointHoverRadius: 6, order: 2 },
+      { type: 'line', data: trend, borderColor: '#ea580c', borderWidth: 2.5, borderDash: [6, 4], pointRadius: 0, pointHitRadius: 0, tension: .3, order: 1 },
+    ] },
+    options: {
+      maintainAspectRatio: false, animation: false, parsing: false,
+      interaction: { mode: 'nearest', intersect: false },
+      scales: {
+        x: { type: 'linear', min: Date.parse('2022-06-01'), max: Date.now() + 20 * DAY, grid: { color: '#f0f1f3' },
+          // One tick at the start of each year, labelled with the year.
+          afterBuildTicks: axis => {
+            axis.ticks = [];
+            for (let y = 2023; Date.UTC(y, 0, 1) <= axis.max; y++) axis.ticks.push({ value: Date.UTC(y, 0, 1) });
+          },
+          ticks: { font, maxRotation: 0, callback: v => new Date(v).getUTCFullYear() } },
+        y: { title: { display: true, text: ev === '333fm' ? 'Average (moves)' : 'Average (seconds)', font }, ticks: { font, callback: v => fmtAxis(v, ev) }, grid },
+      },
+      plugins: { legend: { display: false }, tooltip: { filter: it => it.datasetIndex === 0, callbacks: {
+        title: items => items[0].raw.name,
+        label: it => `${fmtResult(it.raw.raw, ev, 'average')}${ev === '333fm' ? ' moves' : ''} · ${fmtDate(it.raw.date)}`,
+      } } },
+    },
+  });
+  const recent = trend.length ? trend[trend.length - 1].y : null;
+  $('ukNote').textContent = pts.length
+    ? `${pts.length} UK competitions since June 2022. Average of the last 20: ${ev === '333fm' ? recent.toFixed(2) + ' moves' : fmtSecs(recent)}.`
+    : 'No UK finals with an average for this event yet.';
+}
+
 // ---- menu and status ----
 function renderMenu() {
   $('menu').innerHTML = `<button class="prs" data-go="#/prs"><span class="trophy">🏆</span>PRs</button>` +
+    `<button class="uk" data-go="#/uk-win/333">Winning averages</button>` +
+    `<button class="uk" data-go="#/uk-podium/333">Averages to podium</button>` +
     EVENTS.map(e => `<button data-go="#/${e.id}">${icon(e.id)}<span>${esc(e.name)}</span></button>`).join('');
 }
 function latestComp() {
@@ -451,15 +546,16 @@ function renderStatus() {
     `Data fetched ${new Date(data.fetchedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
 }
 
-// ---- routing (#/ menu, #/prs, #/<event id>) ----
+// ---- routing (#/ menu, #/prs, #/<event id>, #/uk-win/<event id>, #/uk-podium/<event id>) ----
 function route() {
-  const page = location.hash.replace(/^#\/?/, '');
+  const [page, sub] = location.hash.replace(/^#\/?/, '').split('/');
   const ev = byId[page];
-  const view = page === 'prs' ? 'prs' : ev ? 'event' : 'menu';
-  for (const v of ['menu', 'prs', 'event']) $(v + 'View').hidden = v !== view;
+  const view = page === 'prs' ? 'prs' : UK_PAGES[page] ? 'uk' : ev ? 'event' : 'menu';
+  for (const v of ['menu', 'prs', 'event', 'uk']) $(v + 'View').hidden = v !== view;
   $('back').hidden = view === 'menu';
-  if (view !== 'event' && chart) { chart.destroy(); chart = null; }
+  if (chart) { chart.destroy(); chart = null; }
   if (view === 'menu') { $('title').textContent = 'RufusCubing'; renderStatus(); }
+  else if (view === 'uk') { $('title').textContent = UK_PAGES[page].title; drawUk(page, byId[sub] ? sub : '333'); }
   else if (!data) { location.hash = '#/'; return; }
   else if (view === 'prs') { $('title').textContent = 'PRs'; renderPrs(); }
   else { $('title').innerHTML = icon(ev.id) + esc(ev.name); renderEvent(ev.id); }
@@ -486,6 +582,7 @@ async function updateData() {
       fresh = await r.json(); source = 'the app’s daily copy';
     }
     const { changed, newComps } = adopt(fresh);
+    try { await refreshUk(); } catch (e) { /* the UK pages keep their last copy */ }
     renderStatus();
     say(!changed ? `Already up to date (checked ${source}).`
       : newComps > 0 ? `Added results from ${newComps} new competition${newComps > 1 ? 's' : ''}.`
@@ -510,13 +607,21 @@ $('tabs').addEventListener('click', e => {
   try { localStorage.setItem(K_GRAPH, b.dataset.graph); } catch (err) {}
   drawChart(location.hash.replace(/^#\/?/, ''), b.dataset.graph);
 });
+$('ukChips').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ev]');
+  if (b) location.replace('#/' + location.hash.replace(/^#\/?/, '').split('/')[0] + '/' + b.dataset.ev);
+});
 window.addEventListener('hashchange', route);
 
 // ---- start ----
 (async function init() {
   renderMenu();
+  $('ukChips').innerHTML = EVENTS.map(e => `<button data-ev="${e.id}" aria-label="${esc(e.name)}">${icon(e.id)}</button>`).join('');
   data = load();
+  uk = load(K_UK);
   route();
+  // Pick up the daily UK copy if it is newer, and redraw if a UK page is showing.
+  refreshUk().then(changed => { if (changed && !$('ukView').hidden) route(); }).catch(() => {});
   // Pick up the daily copy if it is newer than what this device has.
   try {
     const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
