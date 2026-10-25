@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RufusCubing</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RufusCubing">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="icons/cubing-icons.css">
+<style>
+  :root {
+    --ink: #1f2328;
+    --muted: #6b7280;
+    --line: #dcdfe4;
+    --stripe: #f1f3f5;
+    --paper: #ffffff;
+    --navy: #1f3a5f;
+    --accent: #2563eb;
+    --btn: #f4f6f9;
+    --btn-on: #dfe7f3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); background: var(--paper);
+    -webkit-text-size-adjust: 100%;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    background: var(--navy); color: #fff;
+    padding: calc(env(safe-area-inset-top) + 10px) 12px 10px;
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 2;
+  }
+  header h1 { margin: 0; font-size: 1.3rem; font-weight: 650; letter-spacing: .01em; flex: 1; }
+  header h1 .cubing-icon { margin-right: 6px; }
+  #back {
+    font-size: 15px; padding: 7px 12px; border-radius: 8px; border: 0;
+    background: rgba(255,255,255,.16); color: #fff;
+  }
+  #back:active { background: rgba(255,255,255,.3); }
+  main { flex: 1; width: 100%; max-width: 900px; margin: 0 auto; padding: 14px 12px 20px; }
+  footer {
+    font-size: 11px; color: var(--muted); text-align: center;
+    padding: 5px 12px calc(env(safe-area-inset-bottom) + 5px);
+    border-top: 1px solid var(--line); background: #f7f7f7;
+  }
+  h2 { font-size: 1.1rem; text-align: center; margin: 4px 0 10px; }
+  .view[hidden] { display: none; }
+
+  /* ---- menu ---- */
+  .menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .menu button {
+    display: flex; align-items: center; gap: 10px; text-align: left;
+    font-size: 15px; padding: 12px; min-height: 56px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--btn); color: var(--ink);
+  }
+  .menu button:active { background: var(--btn-on); }
+  .menu .cubing-icon { font-size: 26px; width: 30px; text-align: center; flex: none; }
+  .menu button.prs {
+    grid-column: 1 / -1; justify-content: center; font-size: 17px; font-weight: 650;
+    background: var(--navy); color: #fff; border-color: var(--navy);
+  }
+  .menu button.prs:active { background: #2c4f7d; }
+  .menu .trophy { font-size: 22px; }
+  .update { margin-top: 18px; text-align: center; }
+  .update button {
+    font-size: 15px; padding: 10px 16px; border-radius: 10px;
+    border: 1px solid var(--line); background: #e9edf2; color: var(--ink);
+  }
+  .update button:active { background: #d3dae3; }
+  .update button:disabled { opacity: .6; }
+  #status { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+  #msg { font-size: 13px; margin-top: 6px; min-height: 1.2em; }
+
+  /* ---- personal records table ---- */
+  .pr { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .pr th, .pr td { padding: 7px 5px; text-align: right; white-space: nowrap; }
+  .pr th { font-size: 13px; border-bottom: 1px solid var(--line); }
+  .pr th.ev, .pr td.ev { text-align: left; }
+  .pr tbody tr:nth-child(odd) { background: var(--stripe); }
+  .pr td { font-size: 14px; }
+  .pr td.rank { color: var(--muted); }
+  .pr td.time { font-weight: 700; }
+  .pr td.ev .cubing-icon { margin-right: 6px; }
+  .pr tbody tr.link { cursor: pointer; }
+  .pr tbody tr.link:active { background: var(--btn-on); }
+  .pr .short { display: none; }
+  .medals { width: 100%; max-width: 420px; margin: 0 auto; border-collapse: collapse; text-align: center; }
+  .medals th { font-size: 14px; padding: 8px; }
+  .medals td { background: var(--stripe); padding: 8px; font-size: 15px; color: #c2410c; }
+  .section { margin-top: 26px; }
+  .note { font-size: 13px; color: var(--muted); text-align: center; margin-top: 10px; }
+
+  /* ---- event page ---- */
+  .tabs { display: flex; gap: 8px; margin: 18px 0 10px; }
+  .tabs button {
+    flex: 1; font-size: 15px; padding: 10px 6px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--btn); color: var(--ink);
+  }
+  .tabs button.on { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
+  .chart-wrap { position: relative; height: min(62vh, 440px); min-height: 280px; }
+  #chartNote { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+  @media (max-width: 600px) {
+    .menu { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .menu button { font-size: 14px; padding: 10px; }
+    .pr th, .pr td { padding: 6px 2px; font-size: 12px; }
+    .pr td.ev .cubing-icon { margin-right: 3px; }
+    .pr .long { display: none; }
+    .pr .short { display: inline; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button id="back" hidden>‹ Menu</button>
+  <h1 id="title">RufusCubing</h1>
+</header>
+<main>
+  <section id="menuView" class="view">
+    <div class="menu" id="menu"></div>
+    <div class="update">
+      <button id="updateBtn">Update data</button>
+      <div id="msg"></div>
+      <div id="status"></div>
+    </div>
+  </section>
+
+  <section id="prsView" class="view" hidden>
+    <h2>Current Personal Records</h2>
+    <table class="pr" id="prTable"></table>
+    <div class="note">Tap an event to see its graphs.</div>
+    <div class="section">
+      <h2>Medal Collection</h2>
+      <table class="medals" id="medals"></table>
+    </div>
+  </section>
+
+  <section id="eventView" class="view" hidden>
+    <table class="pr" id="eventPr"></table>
+    <div class="tabs" id="tabs">
+      <button data-graph="solves">Solves</button>
+      <button data-graph="average">Average</button>
+      <button data-graph="frequency">Frequency</button>
+    </div>
+    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+    <div id="chartNote"></div>
+  </section>
+</main>
+<footer>V.1. Concept by dan-suri-weather, coded by Claude Code.</footer>
+
+<script src="vendor/chart.umd.js"></script>
+<script type="module">
+import { fetchWca, sameData } from './wca.mjs';
+
+const K_DATA = 'rc.data', K_GRAPH = 'rc.graph';
+
+// In the order the WCA lists them. `short` is used where space is tight on a phone.
+const EVENTS = [
+  { id: '333', name: '3x3', full: '3x3x3 Cube', short: '3x3' },
+  { id: '222', name: '2x2', full: '2x2x2 Cube', short: '2x2' },
+  { id: '444', name: '4x4', full: '4x4x4 Cube', short: '4x4' },
+  { id: '555', name: '5x5', full: '5x5x5 Cube', short: '5x5' },
+  { id: '666', name: '6x6', full: '6x6x6 Cube', short: '6x6' },
+  { id: '777', name: '7x7', full: '7x7x7 Cube', short: '7x7' },
+  { id: '333bf', name: '3x3 Blindfolded', full: '3x3x3 Blindfolded', short: 'BLD' },
+  { id: '333fm', name: '3x3 Fewest Moves', full: '3x3x3 Fewest Moves', short: 'FMC' },
+  { id: '333oh', name: '3x3 One-Handed', full: '3x3x3 One-Handed', short: 'OH' },
+  { id: 'clock', name: 'Clock', full: 'Clock', short: 'Clock' },
+  { id: 'minx', name: 'Megaminx', full: 'Megaminx', short: 'Mega' },
+  { id: 'pyram', name: 'Pyraminx', full: 'Pyraminx', short: 'Pyra' },
+  { id: 'skewb', name: 'Skewb', full: 'Skewb', short: 'Skewb' },
+  { id: 'sq1', name: 'Square-1', full: 'Square-1', short: 'Sq-1' },
+];
+const byId = Object.fromEntries(EVENTS.map(e => [e.id, e]));
+const ROUND_NAMES = { 0: 'Qualification', h: 'Qualification', 1: 'First round', d: 'First round',
+  2: 'Second round', e: 'Second round', 3: 'Semi Final', g: 'Semi Final', b: 'B Final', c: 'Final', f: 'Final' };
+
+let data = null, chart = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const icon = id => `<span class="cubing-icon event-${id}"></span>`;
+
+function load() {
+  try { const v = localStorage.getItem(K_DATA); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+function save() {
+  try { localStorage.setItem(K_DATA, JSON.stringify(data)); }
+  catch (e) { say('Could not save on this device: ' + e.message); }
+}
+let sayTimer;
+function say(t, keep) {
+  $('msg').textContent = t;
+  clearTimeout(sayTimer);
+  if (!keep) sayTimer = setTimeout(() => { $('msg').textContent = ''; }, 8000);
+}
+
+// ---- formatting ----
+// WCA times are in hundredths of a second. Fewest Moves singles are move counts, FM averages are moves x 100.
+function fmtSecs(s) {
+  if (s < 60) return s.toFixed(2);
+  const m = Math.floor(s / 60);
+  return m + ':' + (s - m * 60).toFixed(2).padStart(5, '0');
+}
+function fmtResult(v, ev, kind) {
+  if (v === -1) return 'DNF';
+  if (v === -2) return 'DNS';
+  if (!v || v < 0) return '';
+  if (ev === '333fm') return kind === 'average' ? (v / 100).toFixed(2) : String(v);
+  return fmtSecs(v / 100);
+}
+// A solve or average as a number for graphs (seconds, or moves for FM); null for DNF/DNS/no result.
+function toValue(v, ev, kind) {
+  if (!v || v < 0) return null;
+  if (ev === '333fm') return kind === 'average' ? v / 100 : v;
+  return v / 100;
+}
+const unit = ev => ev === '333fm' ? 'moves' : 'seconds';
+const fmtAxis = (v, ev) => ev === '333fm' ? String(+v.toFixed(2)) : (v >= 60 ? fmtSecs(v).replace(/\.00$/, '') : String(+v.toFixed(2)));
+const fmtDate = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+// ---- personal records table ----
+function prHead() {
+  return `<thead><tr><th class="ev">Event</th><th>NR</th><th>CR</th><th>WR</th><th>Single</th>
+    <th>Average</th><th>WR</th><th>CR</th><th>NR</th></tr></thead>`;
+}
+function prRow(ev, link) {
+  const e = byId[ev], pr = data.prs[ev] || {}, s = pr.single || {}, a = pr.average || {};
+  const rank = v => `<td class="rank">${v ?? ''}</td>`;
+  return `<tr${link ? ` class="link" data-ev="${ev}"` : ''}>
+    <td class="ev">${icon(ev)}<span class="long">${esc(e.full)}</span><span class="short">${esc(e.short)}</span></td>
+    ${rank(s.nr)}${rank(s.cr)}${rank(s.wr)}
+    <td class="time">${fmtResult(s.best, ev, 'single')}</td>
+    <td class="time">${fmtResult(a.best, ev, 'average')}</td>
+    ${rank(a.wr)}${rank(a.cr)}${rank(a.nr)}</tr>`;
+}
+
+function renderPrs() {
+  const evs = EVENTS.filter(e => data.prs[e.id] && data.prs[e.id].single).map(e => e.id);
+  $('prTable').innerHTML = prHead() + '<tbody>' + evs.map(ev => prRow(ev, true)).join('') + '</tbody>';
+  const m = data.medals || {};
+  $('medals').innerHTML = `<thead><tr><th>Gold</th><th>Silver</th><th>Bronze</th></tr></thead>
+    <tbody><tr><td>${m.gold || 0}</td><td>${m.silver || 0}</td><td>${m.bronze || 0}</td></tr></tbody>`;
+}
+
+// ---- event graphs ----
+function eventRounds(ev) {
+  return data.results.filter(r => r[1] === ev).map(([comp, , round, pos, best, average, attempts]) => {
+    const [compName, date] = data.comps[comp] || [comp, ''];
+    return { compName, date, round: ROUND_NAMES[round] || round, pos, best, average, attempts };
+  });
+}
+const roundLabel = r => `${r.compName} · ${r.round}` + (r.date ? ` · ${fmtDate(r.date)}` : '');
+
+// Every attempt in order. DNF/DNS keep their place on the x-axis but have no value, so the line breaks there.
+// A 0 means the attempt was never taken (for example, a cutoff wasn't met), so it isn't counted as a solve.
+function solvesSeries(ev) {
+  const pts = [];
+  for (const r of eventRounds(ev)) {
+    (r.attempts || []).forEach((v, i) => {
+      if (v === 0) return;
+      pts.push({ x: pts.length + 1, y: toValue(v, ev, 'single'), raw: v, info: `${roundLabel(r)} · solve ${i + 1}` });
+    });
+  }
+  return pts;
+}
+// One point per round taken part in. Rounds with no average (DNF, or a cutoff not met) leave a gap.
+function averageSeries(ev) {
+  return eventRounds(ev).map((r, i) => ({
+    x: i + 1, y: toValue(r.average, ev, 'average'), raw: r.average,
+    info: `${roundLabel(r)} · place ${r.pos}`,
+  }));
+}
+
+const NICE_SECS = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
+const NICE_MOVES = [1, 2, 5, 10];
+function frequencyBins(ev) {
+  const vals = solvesSeries(ev).map(p => p.y).filter(v => v != null);
+  if (!vals.length) return { labels: [], counts: [], total: 0 };
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const steps = ev === '333fm' ? NICE_MOVES : NICE_SECS;
+  const step = steps.find(s => (max - min) / s <= 24) || steps[steps.length - 1];
+  const start = Math.floor(min / step) * step;
+  const n = Math.floor((max - start) / step) + 1;
+  const counts = new Array(n).fill(0);
+  for (const v of vals) counts[Math.min(n - 1, Math.floor((v - start) / step + 1e-9))]++;
+  const labels = counts.map((_, i) => {
+    const lo = start + i * step;
+    return ev === '333fm' && step === 1 ? String(lo) : `${fmtAxis(lo, ev)}–${fmtAxis(lo + step, ev)}`;
+  });
+  return { labels, counts, total: vals.length };
+}
+
+function drawChart(ev, kind) {
+  if (chart) { chart.destroy(); chart = null; }
+  for (const b of $('tabs').children) b.classList.toggle('on', b.dataset.graph === kind);
+  const navy = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const grid = { color: '#e5e7eb' };
+  const font = { size: 12 };
+  let config, note;
+
+  if (kind === 'frequency') {
+    const f = frequencyBins(ev);
+    config = {
+      type: 'bar',
+      data: { labels: f.labels, datasets: [{ data: f.counts, backgroundColor: navy, borderRadius: 3, barPercentage: 1, categoryPercentage: .92 }] },
+      options: {
+        scales: {
+          x: { title: { display: true, text: ev === '333fm' ? 'Moves' : 'Solve time (seconds)', font }, ticks: { font, maxRotation: 60 }, grid: { display: false } },
+          y: { title: { display: true, text: 'Number of solves', font }, beginAtZero: true, ticks: { font, precision: 0 }, grid },
+        },
+        plugins: { tooltip: { callbacks: { title: items => items[0].label + (ev === '333fm' ? ' moves' : ' s'), label: it => `${it.raw} solve${it.raw === 1 ? '' : 's'}` } } },
+      },
+    };
+    note = f.total ? `${f.total} completed solves. DNF and DNS are left out.` : 'No completed solves yet.';
+  } else {
+    const pts = kind === 'solves' ? solvesSeries(ev) : averageSeries(ev);
+    const done = pts.filter(p => p.y != null).length;
+    config = {
+      type: 'line',
+      data: { datasets: [{ data: pts, borderColor: navy, backgroundColor: navy, borderWidth: 1.5,
+        pointRadius: pts.length > 300 ? 1.5 : 2.5, pointHoverRadius: 5, spanGaps: false, tension: 0 }] },
+      options: {
+        parsing: false,
+        scales: {
+          x: { type: 'linear', min: 1, max: Math.max(pts.length, 2), title: { display: true, text: kind === 'solves' ? 'Solve number' : 'Round number', font }, ticks: { font, precision: 0 }, grid },
+          y: { title: { display: true, text: (kind === 'solves' ? 'Solve' : 'Average') + ' (' + unit(ev) + ')', font }, ticks: { font, callback: v => fmtAxis(v, ev) }, grid },
+        },
+        plugins: { tooltip: { callbacks: {
+          title: items => `${kind === 'solves' ? 'Solve' : 'Round'} ${items[0].raw.x}: ${fmtResult(items[0].raw.raw, ev, kind === 'solves' ? 'single' : 'average')}`,
+          label: it => it.raw.info,
+        } } },
+      },
+    };
+    const gaps = pts.length - done;
+    note = pts.length
+      ? `${pts.length} ${kind === 'solves' ? 'solves' : 'rounds'}` + (gaps ? `, ${gaps} with no ${kind === 'solves' ? 'time (DNF/DNS)' : 'average'} shown as gaps.` : '.')
+      : 'No results yet.';
+    if (pts.length && !done) note = `No completed ${kind === 'solves' ? 'solves' : 'averages'} yet (${pts.length} ${kind === 'solves' ? 'attempts' : 'rounds'}).`;
+  }
+  config.options.maintainAspectRatio = false;
+  config.options.animation = false;
+  config.options.interaction = { mode: 'nearest', intersect: false, axis: 'x' };
+  config.options.plugins.legend = { display: false };
+  chart = new Chart($('chart'), config);
+  $('chartNote').textContent = note;
+}
+
+function renderEvent(ev) {
+  $('eventPr').innerHTML = prHead() + '<tbody>' + prRow(ev, false) + '</tbody>';
+  let kind = 'solves';
+  try { kind = localStorage.getItem(K_GRAPH) || kind; } catch (e) {}
+  drawChart(ev, kind);
+}
+
+// ---- menu and status ----
+function renderMenu() {
+  $('menu').innerHTML = `<button class="prs" data-go="#/prs"><span class="trophy">🏆</span>PRs</button>` +
+    EVENTS.map(e => `<button data-go="#/${e.id}">${icon(e.id)}<span>${esc(e.name)}</span></button>`).join('');
+}
+function latestComp() {
+  const last = data.results[data.results.length - 1];
+  return last ? data.comps[last[0]] || [last[0], ''] : null;
+}
+function renderStatus() {
+  if (!data) { $('status').textContent = 'No data yet. Connect to the internet and tap Update data.'; return; }
+  const lc = latestComp();
+  $('status').innerHTML = `${esc(data.name)} · ${data.competitionCount} competitions<br>` +
+    (lc ? `Latest: ${esc(lc[0])} (${fmtDate(lc[1])})<br>` : '') +
+    `Data fetched ${new Date(data.fetchedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+}
+
+// ---- routing (#/ menu, #/prs, #/<event id>) ----
+function route() {
+  const page = location.hash.replace(/^#\/?/, '');
+  const ev = byId[page];
+  const view = page === 'prs' ? 'prs' : ev ? 'event' : 'menu';
+  for (const v of ['menu', 'prs', 'event']) $(v + 'View').hidden = v !== view;
+  $('back').hidden = view === 'menu';
+  if (view !== 'event' && chart) { chart.destroy(); chart = null; }
+  if (view === 'menu') { $('title').textContent = 'RufusCubing'; renderStatus(); }
+  else if (!data) { location.hash = '#/'; return; }
+  else if (view === 'prs') { $('title').textContent = 'PRs'; renderPrs(); }
+  else { $('title').innerHTML = icon(ev.id) + esc(ev.name); renderEvent(ev.id); }
+  window.scrollTo(0, 0);
+}
+
+// ---- updating ----
+function adopt(fresh) {
+  const before = data ? Object.keys(data.comps).length : 0;
+  const changed = !sameData(data, fresh);
+  data = fresh; save();
+  return { changed, newComps: Object.keys(fresh.comps).length - before };
+}
+async function updateData() {
+  const btn = $('updateBtn');
+  btn.disabled = true; say('Checking the WCA for new results…', true);
+  try {
+    let fresh, source = 'the WCA';
+    try { fresh = await fetchWca(); }
+    catch (e) {
+      // Fall back to the copy the daily GitHub Action keeps next to the app.
+      const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw e;
+      fresh = await r.json(); source = 'the app’s daily copy';
+    }
+    const { changed, newComps } = adopt(fresh);
+    renderStatus();
+    say(!changed ? `Already up to date (checked ${source}).`
+      : newComps > 0 ? `Added results from ${newComps} new competition${newComps > 1 ? 's' : ''}.`
+      : `Results updated from ${source}.`);
+  } catch (e) {
+    say('Could not update: ' + e.message + '. Check your internet connection.');
+  } finally { btn.disabled = false; }
+}
+
+// ---- events ----
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]');
+  if (go) { location.hash = go.dataset.go; return; }
+  const row = e.target.closest('tr.link');
+  if (row) location.hash = '#/' + row.dataset.ev;
+});
+$('back').addEventListener('click', () => { location.hash = '#/'; });
+$('updateBtn').addEventListener('click', updateData);
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-graph]');
+  if (!b) return;
+  try { localStorage.setItem(K_GRAPH, b.dataset.graph); } catch (err) {}
+  drawChart(location.hash.replace(/^#\/?/, ''), b.dataset.graph);
+});
+window.addEventListener('hashchange', route);
+
+// ---- start ----
+(async function init() {
+  renderMenu();
+  data = load();
+  route();
+  // Pick up the daily copy if it is newer than what this device has.
+  try {
+    const r = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) {
+      const copy = await r.json();
+      if (!data || (copy.fetchedAt > data.fetchedAt && !sameData(data, copy))) { adopt(copy); route(); }
+    }
+  } catch (e) { if (!data) say('Could not load results. Connect to the internet and tap Update data.', true); }
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
