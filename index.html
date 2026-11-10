@@ -190,7 +190,7 @@
     <div class="note" id="ukNote"></div>
   </section>
 </main>
-<footer>V.5. Concept by dan-suri-weather, coded by Claude Code.</footer>
+<footer>V.6. Concept by dan-suri-weather, coded by Claude Code.</footer>
 
 <script src="vendor/chart.umd.js"></script>
 <script type="module">
@@ -338,7 +338,9 @@ function eventMedals(ev) {
 function eventRounds(ev) {
   return data.results.filter(r => r[1] === ev).map(([comp, , round, pos, best, average, attempts]) => {
     const [compName, date] = data.comps[comp] || [comp, ''];
-    return { compName, date, round: ROUND_NAMES[round] || round, pos, best, average, attempts };
+    // Medal: 1st, 2nd or 3rd in a final with a valid result, the same rule as eventMedals().
+    const medal = (round === 'f' || round === 'c') && best > 0 && pos <= 3 ? pos : 0;
+    return { compName, date, round: ROUND_NAMES[round] || round, pos, best, average, attempts, medal };
   });
 }
 const roundLabel = r => `${r.compName} · ${r.round}` + (r.date ? ` · ${fmtDate(r.date)}` : '');
@@ -358,10 +360,11 @@ function solvesSeries(ev) {
 // One point per round taken part in. Rounds with no average (DNF, or a cutoff not met) leave a gap.
 function averageSeries(ev) {
   return eventRounds(ev).map((r, i) => ({
-    x: i + 1, y: toValue(r.average, ev, 'average'), raw: r.average,
+    x: i + 1, y: toValue(r.average, ev, 'average'), raw: r.average, medal: r.medal,
     info: `${roundLabel(r)} · place ${r.pos}`,
   }));
 }
+const MEDAL_COLOURS = { 1: '#e3b200', 2: '#a8adb5', 3: '#b8733c' };
 
 const NICE_SECS = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
 const NICE_MOVES = [1, 2, 5, 10];
@@ -433,15 +436,25 @@ function drawChart(ev, kind) {
     const done = pts.filter(p => p.y != null).length;
     const prKind = kind === 'solves' ? 'single' : 'average';
     const pr = (data.prs[ev] || {})[prKind];
+    // Gold, silver and bronze dots on the Average graph where the round won a medal; drawn a little larger.
+    const medalOf = c => (kind === 'average' && c.raw && MEDAL_COLOURS[c.raw.medal]) || null;
+    const dotSize = pts.length > 300 ? 1.5 : 2.5;
+    // A little room either side so the first and last dots aren't cut off at the edge.
+    const pad = Math.max(1, Math.round(pts.length * 0.02));
     config = {
       type: 'line',
       plugins: [bestLine],
-      data: { datasets: [{ data: pts, borderColor: navy, backgroundColor: navy, borderWidth: 1.5,
-        pointRadius: pts.length > 300 ? 1.5 : 2.5, pointHoverRadius: 5, spanGaps: false, tension: 0 }] },
+      data: { datasets: [{ data: pts, borderColor: navy, borderWidth: 1.5, spanGaps: false, tension: 0,
+        backgroundColor: c => medalOf(c) || navy,
+        pointBorderColor: c => medalOf(c) ? '#5b4a1f' : navy,
+        pointBorderWidth: c => medalOf(c) ? 1 : 0,
+        pointRadius: c => medalOf(c) ? 5.5 : dotSize,
+        pointHoverRadius: c => medalOf(c) ? 7 : 5 }] },
       options: {
         parsing: false,
         scales: {
-          x: { type: 'linear', min: 1, max: Math.max(pts.length, 2), title: { display: true, text: kind === 'solves' ? 'Solve number' : 'Round number', font }, ticks: { font, precision: 0 }, grid },
+          x: { type: 'linear', min: 1 - pad, max: Math.max(pts.length, 2) + pad, title: { display: true, text: kind === 'solves' ? 'Solve number' : 'Round number', font },
+            ticks: { font, precision: 0, callback: v => v >= 1 ? v : '' }, grid },
           y: { title: { display: true, text: (kind === 'solves' ? 'Solve' : 'Average') + ' (' + unit(ev) + ')', font }, ticks: { font, callback: v => fmtAxis(v, ev) }, grid },
         },
         plugins: {
@@ -458,6 +471,7 @@ function drawChart(ev, kind) {
       ? `${pts.length} ${kind === 'solves' ? 'solves' : 'rounds'}` + (gaps ? `, ${gaps} with no ${kind === 'solves' ? 'time (DNF/DNS)' : 'average'} shown as gaps.` : '.')
       : 'No results yet.';
     if (pts.length && !done) note = `No completed ${kind === 'solves' ? 'solves' : 'averages'} yet (${pts.length} ${kind === 'solves' ? 'attempts' : 'rounds'}).`;
+    if (kind === 'average' && pts.some(p => p.medal && p.y != null)) note += ' Gold, silver and bronze dots are medals.';
   }
   config.options.maintainAspectRatio = false;
   config.options.animation = false;
