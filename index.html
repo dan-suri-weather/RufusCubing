@@ -190,7 +190,7 @@
     <div class="note" id="ukNote"></div>
   </section>
 </main>
-<footer>V.6. Concept by dan-suri-weather, coded by Claude Code.</footer>
+<footer>V.8. Concept by dan-suri-weather, coded by Claude Code.</footer>
 
 <script src="vendor/chart.umd.js"></script>
 <script type="module">
@@ -368,12 +368,14 @@ const MEDAL_COLOURS = { 1: '#e3b200', 2: '#a8adb5', 3: '#b8733c' };
 
 const NICE_SECS = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
 const NICE_MOVES = [1, 2, 5, 10];
+// Fixed band widths for events where the automatic choice is too coarse.
+const FIXED_STEP = { '333': 1 };
 function frequencyBins(ev) {
   const vals = solvesSeries(ev).map(p => p.y).filter(v => v != null);
   if (!vals.length) return { labels: [], counts: [], total: 0 };
   const min = Math.min(...vals), max = Math.max(...vals);
   const steps = ev === '333fm' ? NICE_MOVES : NICE_SECS;
-  const step = steps.find(s => (max - min) / s <= 24) || steps[steps.length - 1];
+  const step = FIXED_STEP[ev] || steps.find(s => (max - min) / s <= 24) || steps[steps.length - 1];
   const start = Math.floor(min / step) * step;
   const n = Math.floor((max - start) / step) + 1;
   const counts = new Array(n).fill(0);
@@ -436,7 +438,7 @@ function drawChart(ev, kind) {
     const done = pts.filter(p => p.y != null).length;
     const prKind = kind === 'solves' ? 'single' : 'average';
     const pr = (data.prs[ev] || {})[prKind];
-    // Gold, silver and bronze dots on the Average graph where the round won a medal; drawn a little larger.
+    // Gold, silver and bronze dots on the Average graph where the round won a medal; same size as the others.
     const medalOf = c => (kind === 'average' && c.raw && MEDAL_COLOURS[c.raw.medal]) || null;
     const dotSize = pts.length > 300 ? 1.5 : 2.5;
     // A little room either side so the first and last dots aren't cut off at the edge.
@@ -446,10 +448,10 @@ function drawChart(ev, kind) {
       plugins: [bestLine],
       data: { datasets: [{ data: pts, borderColor: navy, borderWidth: 1.5, spanGaps: false, tension: 0,
         backgroundColor: c => medalOf(c) || navy,
-        pointBorderColor: c => medalOf(c) ? '#5b4a1f' : navy,
-        pointBorderWidth: c => medalOf(c) ? 1 : 0,
-        pointRadius: c => medalOf(c) ? 5.5 : dotSize,
-        pointHoverRadius: c => medalOf(c) ? 7 : 5 }] },
+        pointBorderColor: c => medalOf(c) || navy,
+        pointBorderWidth: 0,
+        pointRadius: dotSize,
+        pointHoverRadius: 5 }] },
       options: {
         parsing: false,
         scales: {
